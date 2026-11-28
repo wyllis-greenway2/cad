@@ -46,6 +46,11 @@ export function createBoxSelect(parent: HTMLElement, host: BoxHost) {
       stop();
       return was;
     },
+    /** a right drag has begun at (x, y): the box is drawn from there, with nothing to arm first */
+    start(x: number, y: number): void {
+      armed = true;
+      from = { x, y };
+    },
     /** a press: when a box is waited for, it is the box's corner (true) */
     grab(x: number, y: number): boolean {
       if (!armed) return false;

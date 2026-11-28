@@ -287,7 +287,15 @@ const scenePlanes = (): PlaneRef[] => {
   const last = [...studio.state().snapshot].reverse().find((x) => x.output === "body");
   return last ? planesOf(last.faces) : [];
 };
-const bodyOps = createBodyOps({ studio, faceFacts, planes: scenePlanes });
+const bodyOps = createBodyOps({
+  studio,
+  faceFacts,
+  planes: scenePlanes,
+  view: () => {
+    const e = env();
+    return { cam: s.c, w: e.w, h: e.h };
+  },
+});
 const bmove = createBodyMove({
   meshes: () => studio.state().meshes,
   recipe: () => studio.state().steps,
@@ -609,6 +617,8 @@ attach(
         menu.close();
         return;
       }
+      // a click that did not move, with an operation open and taken (an arrow dragged, a number typed, a kind chosen) or opened by a tool, makes it if it is valid and puts it away if not, as a right click does (the old app's tap away from the handles, `MD-27`); a drag turns the view
+      if ((ext.draft() || (ext.pulling() && tools.armed())) && (auto.finish() || tools.finish())) return;
       if (ext.click(x, y)) return;
       if (sk.drawStep() === 0 && beginOnFace(x, y)) return;
       if (sk.click(x, y, count, shiftHeld || tools.additive())) return;
@@ -638,6 +648,9 @@ attach(
         sk.grab(x, y, shift || tools.additive())
       );
     },
+    boxStart: (x, y) => box.start(x, y),
+    boxMove: (x, y) => box.move(x, y),
+    boxEnd: (x, y) => box.end(x, y),
     grabMove: (x, y) => {
       box.move(x, y);
       ext.grabMove(x, y);
@@ -773,7 +786,7 @@ function frame(now: number) {
     orb: ext.drawing(game.on ? null : pointer) ?? orb,
     ghost: ext.ghost(),
     moved: bmove.preview(),
-    marks: [...bodies.marks().filter((m) => !(m.whole && bmove.on())), ...tieMarks()],
+    marks: [...bodies.marks().filter((m) => !(m.whole && bmove.moved())), ...tieMarks()],
     regions: regions.lit,
     faceOrb: game.on
       ? undefined

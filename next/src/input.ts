@@ -29,14 +29,18 @@ export interface Intents {
   grab(x: number, y: number, shift: boolean): boolean;
   grabMove(x: number, y: number): void;
   grabEnd(x: number, y: number): void;
+  /** A right drag: a box from where it began; moved; let go (the page picks what it holds). */
+  boxStart(x: number, y: number): void;
+  boxMove(x: number, y: number): void;
+  boxEnd(x: number, y: number): void;
   /** The space bar was tapped (let go without having been used to pan): game mode on or off. */
   space(): void;
 }
 
-type Action = "orbit" | "pan" | "click";
+type Action = "orbit" | "pan" | "click" | "box";
 export const actionOf = (button: number, m: { shift: boolean; alt: boolean }, space: boolean): Action => {
   if (button === 1) return "pan";
-  if (button === 2) return m.shift ? "pan" : "orbit";
+  if (button === 2) return m.shift ? "pan" : "box"; // (a right drag draws a box to pick what it holds, `in_1728`; the view is turned by a left drag, or Alt)
   if (space || (m.alt && m.shift)) return "pan";
   if (m.alt) return "orbit";
   return "click"; // a plain left press: a click if it does not move, else the view turns
@@ -184,7 +188,12 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     if (!drag.moved && Math.hypot(p.x - drag.x0, p.y - drag.y0) < settings.view.clickMovePx) return;
     if (!drag.moved) {
       drag.moved = true;
-      out.dragStart(drag.x0, drag.y0);
+      if (drag.action === "box") out.boxStart(drag.x0, drag.y0);
+      else out.dragStart(drag.x0, drag.y0);
+    }
+    if (drag.action === "box") {
+      out.boxMove(p.x, p.y);
+      return;
     }
     const dx = p.x - drag.x,
       dy = p.y - drag.y;
@@ -217,11 +226,12 @@ export function attach(el: HTMLElement, out: Intents, locked: () => boolean): ()
     drag = null;
     if (!d) return;
     if (d.moved) {
-      out.dragEnd();
+      if (d.action === "box") out.boxEnd(p.x, p.y);
+      else out.dragEnd();
       return;
     }
     if (d.action === "click" && e.type === "pointerup") out.click(p.x, p.y, count(p.x, p.y, e.timeStamp));
-    else if (d.button === 2 && !d.shift && e.type === "pointerup") out.menu(p.x, p.y); // (a right click that did not move: the menu; a right drag orbits)
+    else if (d.button === 2 && !d.shift && e.type === "pointerup") out.menu(p.x, p.y); // (a right click that did not move: the menu; a right drag draws a box)
   };
   let stream: { kind: WheelKind; t: number } | null = null,
     scrolling: ReturnType<typeof setTimeout> | null = null;

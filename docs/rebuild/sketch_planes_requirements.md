@@ -23,7 +23,7 @@ Status: **a draft, `ai-unreviewed`.** The first prototype of this section (`in_1
 ## Rows
 | ID | Requirement | Source | Inputs | Contracts | Test | Status |
 |---|---|---|---|---|---|---|
-| P1 | The right-click ring opens at the pointer on a right click that does not move (a right drag still orbits), closes on Esc, on a click outside it and after one item is chosen. | in_1441 in_1442 in_235 | right click without movement | `Intents` | browser | later |
+| P1 | The right-click ring opens at the pointer on a right click that does not move (a right drag draws a box to pick with, `in_1728`), closes on Esc, on a click outside it and after one item is chosen. | in_1441 in_1442 in_235 | right click without movement | `Intents` | browser | later |
 | P2 | The ring's *Sketch plane* makes a sketch plane at the point looked at, facing the camera (snapped to a world axis within 8°), and it becomes the sketch plane that is on; its grid is drawn (not a world plane's). | in_1441 in_383 | | `ViewState` | browser | later |
 | P3 | **Sketching on a plane is orthographic to that plane by default**: making a sketch plane turns the view straight to it (from the side the eye is on) and the view becomes orthographic, as for a world plane (`C11`, `C12`). | in_1460 in_190 in_193 | | `ViewState` | browser | later |
 | P4 | There is one placed sketch plane at a time; pressing a pane of a world plane or an X Y Z button makes that world plane the one that is on and takes the placed one away. | in_1460 | click on a pane | `ViewState` | browser | later |

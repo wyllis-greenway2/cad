@@ -27,10 +27,11 @@ try {
     s.pull?.mode === "push" && s.b.sel.faces.length === 1,
     `a face picked shows its pull arrow by itself: ${JSON.stringify(s.pull?.arrow)}`,
   );
+  const [bx0, by0] = await ev<[number, number]>(`() => window.__proj3(${JSON.stringify(s.pull.arrow.base)})`);
+  const away = Math.hypot(bx0 - gx, by0 - gy);
   ok(
-    Math.hypot(s.pull.arrow.base[0] - 12, s.pull.arrow.base[1] - 4) < 0.05 &&
-      Math.abs(s.pull.arrow.base[2] - 20) < 1e-6,
-    "and it stands on the face where it was clicked",
+    Math.abs(s.pull.arrow.base[2] - 20) < 1e-6 && away > 25 && away < 90,
+    `and it stands on the face a little way from where it was clicked (${Math.round(away)} px), not under the click`,
   );
 
   // an untouched arrow is put away by the next click, which does its own work (here: an edge)
@@ -43,15 +44,8 @@ try {
     `the click picked the edge and its round arrow replaced the pull arrow: ${s.pull?.mode}`,
   );
 
-  // a touched arrow is a draft: a click elsewhere does nothing to it; Esc throws it away
+  // a touched arrow is a draft: Esc throws it away
   await ev(`() => window.__ext.option("chamfer")`);
-  await page.mouse.click(gx, gy);
-  await wait(300);
-  s = await state();
-  ok(
-    s.pull?.mode === "round" && s.b.sel.edges.length === 1,
-    "a kind chosen makes it a draft: a click elsewhere leaves it, and the pick",
-  );
   await page.keyboard.press("Escape");
   await wait(300);
   s = await state();
@@ -122,6 +116,18 @@ try {
     s.b.sel?.edges.length === 4 && s.b.sel.faces.length === 0,
     `a box round the top face takes its four edges: ${s.b.sel?.edges.length}`,
   );
+  await page.mouse.click(1000, 600);
+  await wait(400);
+  // a right drag draws the same box with nothing armed (it does not turn the view)
+  const cam0 = await ev<string>(`() => JSON.stringify(window.__cad.cam)`);
+  await page.mouse.move(Math.min(...xs) - 12, Math.min(...ys) - 12);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.move(Math.max(...xs) + 12, Math.max(...ys) + 12, { steps: 6 });
+  await page.mouse.up({ button: "right" });
+  await wait(500);
+  s = await state();
+  ok(s.b.sel?.edges.length === 4, `a right drag round the top face takes its four edges: ${s.b.sel?.edges.length}`);
+  ok((await ev<string>(`() => JSON.stringify(window.__cad.cam)`)) === cam0, "and the view did not turn");
   await page.mouse.click(1000, 600);
   await wait(400);
   await ev(`() => { window.__bodies.selectAll("faces"); return 1; }`);
@@ -250,6 +256,20 @@ try {
   await wait(900);
   s = await state();
   ok(s.steps === before2 + 2, `a number pulls both together: one step each (${before2}, then ${s.steps})`);
+  // a touched arrow is a draft, and a click that does not move makes it (a drag turns the view): a number typed, then a click on nothing
+  await page.mouse.click(1000, 600);
+  await wait(400);
+  const [dx3, dy3] = await p3([12, 4, 23]); // (the top is 3 mm higher now: the two faces were pulled)
+  await page.mouse.click(dx3, dy3);
+  await wait(700);
+  const recipe = () => ev<string>(`() => JSON.stringify(window.__studio.state().steps)`),
+    recipeBefore = await recipe(); // (a pull of the face a step made, Move, changes that step's number)
+  for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowUp");
+  await wait(200);
+  await page.mouse.click(1000, 600);
+  await wait(1200);
+  s = await state();
+  ok(s.pull === null && (await recipe()) !== recipeBefore, "a click on nothing makes the draft: the recipe is changed");
   // three quick clicks take that face alone and turn the view square to it (the old app's), looking straight down at a top face
   await page.mouse.click(1000, 600);
   await wait(500);

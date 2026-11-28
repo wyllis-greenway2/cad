@@ -59,8 +59,7 @@ try {
     (await topZ()) === 10 && (await badge()) === null,
     "a right click with no size: the pull is thrown away and the tool put away",
   );
-  await choose(["Model", "Push / pull a face"]);
-  await face();
+  await choose(["Model", "Push / pull a face"]); // (the face is still picked: the tool opens its arrow at once; a click on the face now would be a click that makes it, K61)
   await page.waitForTimeout(900);
   await page.click("[data-fact='d'] [data-number]");
   await page.keyboard.type("3");

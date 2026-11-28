@@ -5,7 +5,7 @@ import { actionOf, classifyWheel, wheelKind } from "../src/input.ts";
 test("[C2 C5] which button and key does what", () => {
   const no = { shift: false, alt: false };
   assert.equal(actionOf(0, no, false), "click");
-  assert.equal(actionOf(2, no, false), "orbit");
+  assert.equal(actionOf(2, no, false), "box"); // (a right drag picks with a box, `in_1728`; a left drag or Alt turns the view)
   assert.equal(actionOf(0, { shift: false, alt: true }, false), "orbit");
   assert.equal(actionOf(1, no, false), "pan");
   assert.equal(actionOf(2, { shift: true, alt: false }, false), "pan");
@@ -24,8 +24,12 @@ test("[C6] a gesture keeps its kind while its events keep coming: a whole 120 in
   const ev = (deltaY: number) => ({ ctrlKey: false, deltaMode: 0, deltaX: 0, deltaY });
   let s = classifyWheel(ev(4.5), 0, null);
   assert.equal(s.kind, "scroll");
-  s = classifyWheel(ev(120), 16, s); assert.equal(s.kind, "scroll", "the tail of a flick");
-  s = classifyWheel(ev(120), 400, s); assert.equal(s.kind, "wheel", "a lone notch after a pause");
-  s = classifyWheel(ev(100), 416, s); assert.equal(s.kind, "wheel", "a wheel spun fast stays a wheel");
-  s = classifyWheel({ ...ev(3), ctrlKey: true }, 420, s); assert.equal(s.kind, "pinch");
+  s = classifyWheel(ev(120), 16, s);
+  assert.equal(s.kind, "scroll", "the tail of a flick");
+  s = classifyWheel(ev(120), 400, s);
+  assert.equal(s.kind, "wheel", "a lone notch after a pause");
+  s = classifyWheel(ev(100), 416, s);
+  assert.equal(s.kind, "wheel", "a wheel spun fast stays a wheel");
+  s = classifyWheel({ ...ev(3), ctrlKey: true }, 420, s);
+  assert.equal(s.kind, "pinch");
 });

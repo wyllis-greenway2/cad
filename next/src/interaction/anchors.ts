@@ -144,8 +144,8 @@ export function nearestOnEdges<E extends { start: number; count: number }>(
   lines: Float32Array,
   edges: readonly E[],
   p: V3,
-): { edge: E; at: V3 } | null {
-  let best: { edge: E; at: V3 } | null = null,
+): { edge: E; at: V3; dir: V3 } | null {
+  let best: { edge: E; at: V3; dir: V3 } | null = null,
     d = Infinity;
   for (const e of edges)
     for (let i = 0; i + 1 < e.count; i++) {
@@ -162,8 +162,44 @@ export function nearestOnEdges<E extends { start: number; count: number }>(
         e2 = Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]);
       if (e2 < d) {
         d = e2;
-        best = { edge: e, at: q };
+        best = {
+          edge: e,
+          at: q,
+          dir: l2 < 1e-18 ? [1, 0, 0] : [ab[0] / Math.sqrt(l2), ab[1] / Math.sqrt(l2), ab[2] / Math.sqrt(l2)],
+        };
       }
     }
   return best;
+}
+
+/** The place of a face nearest to a place (the place itself when it is on the face) */
+export function nearOnFace(m: Tris, f: { start: number; count: number }, p: V3): V3 {
+  let best: V3 = p,
+    d = Infinity;
+  for (let k = f.start; k + 2 < f.start + f.count; k += 3) {
+    const at = (n: number): V3 => [
+      m.positions[3 * m.indices[k + n]!]!,
+      m.positions[3 * m.indices[k + n]! + 1]!,
+      m.positions[3 * m.indices[k + n]! + 2]!,
+    ];
+    const q = closestOnTriangle(p, at(0), at(1), at(2)),
+      e = Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]);
+    if (e < d) {
+      d = e;
+      best = q;
+    }
+  }
+  return best;
+}
+/** A place beside the click, `step` away along `way` (either side), that is still on the face: the arrow stands near where it was clicked, not under it, so that a second click is a click and not the arrow's press. */
+export function nearClick(m: Tris, f: { start: number; count: number }, click: V3, way: V3, step: number): V3 {
+  for (const sign of [1, -1]) {
+    const q = nearOnFace(m, f, [
+      click[0] + way[0] * step * sign,
+      click[1] + way[1] * step * sign,
+      click[2] + way[2] * step * sign,
+    ]);
+    if (Math.hypot(q[0] - click[0], q[1] - click[1], q[2] - click[2]) >= step * 0.5) return q;
+  }
+  return click;
 }
