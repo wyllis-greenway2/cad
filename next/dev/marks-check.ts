@@ -3,6 +3,7 @@ import { addCircle, addLine, addRect, emptySketch, keep, refOf, viewSystem } fro
 import { alphaAt, marksFor } from "../src/interaction/marks.ts";
 import { iconOf, scopeOf, whereOf } from "../src/interaction/bubbles.ts";
 import type { System } from "../src/engine/solver.ts";
+import { STROKE } from "../src/interaction/style.ts";
 import { settings } from "../src/settings.ts";
 import { check, failureCount } from "./lib.ts";
 
@@ -412,6 +413,20 @@ check("a selected end shows its own constraints and not the line's", onEnd === "
       iconOf("horizontal", ["L1"]) === "horizontal" &&
       iconOf("vertical", ["L1"]) === "vertical" &&
       iconOf("tangent", ["L1", "K1"]) === "tangent",
+  );
+}
+{
+  // one dashed line (`in_1673`): every dashed stroke is the same thin weight, and there are only two kinds of it (neutral, and yellow for what is suggested)
+  const dashed = Object.entries(STROKE).filter(([, v]) => v.dashed);
+  check(
+    "there is one dashed line: the same thin weight whatever it is for, in two colours (neutral, yellow)",
+    dashed.length === 2 &&
+      dashed.every(([, v]) => v.weight === 0.75 && !v.soft) &&
+      dashed
+        .map(([k]) => k)
+        .sort()
+        .join() === "dash,dashOffer",
+    dashed.map(([k, v]) => `${k}:${v.weight}`).join(),
   );
 }
 process.exit(failureCount() ? 1 : 0);

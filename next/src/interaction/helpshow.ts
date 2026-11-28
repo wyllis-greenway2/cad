@@ -3,7 +3,7 @@
 import type { Helped, Pt } from "../engine/helpers.ts";
 
 export interface Shown {
-  kind: "guide" | "tie" | "tieBall";
+  kind: "dashOffer" | "tie" | "tieBall";
   pts: Pt[];
 }
 /** the lines of a placed helper: the guides of everything that holds, and every source lit (once) */
@@ -12,7 +12,7 @@ export function helpShown(h: Helped, shape: (part: string) => Pt[] | null, at: (
     lit = new Set<string>();
   for (const x of [...h.acted, ...h.holds.filter((y) => !h.acted.includes(y))]) {
     const g = h.guide(x);
-    if (g && g.length > 1) out.push({ kind: "guide", pts: g });
+    if (g && g.length > 1) out.push({ kind: "dashOffer", pts: g });
     for (const s of x.sources) {
       if (lit.has(s)) continue;
       lit.add(s);

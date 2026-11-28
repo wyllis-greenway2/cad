@@ -34,6 +34,7 @@ export interface DrawLine {
   /** a ball's radius, in mm */ r?: number;
   /** a dashed line's dash, in mm (the gap is 0.7 of it) */ dash?: number;
   /** the open tip of an arrow: drawn solid even where its kind is dashed */ head?: boolean;
+  /** drawn faint (what moves only because the named parts do) */ pale?: boolean;
   kind:
     | "done"
     | "selected"
@@ -42,16 +43,12 @@ export interface DrawLine {
     | "cut"
     | "tie"
     | "tieBall"
-    | "guide"
+    | "dash"
+    | "dashOffer"
     | "ball"
     | "centre"
-    | "arrow"
-    | "arrowOffer"
-    | "arrowPale"
     | "dimExt"
     | "dimArc"
-    | "align"
-    | "alignOffer"
     | "lit"
     | "litOffer"
     | "litOfferSel"

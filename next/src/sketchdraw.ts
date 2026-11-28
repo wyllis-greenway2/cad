@@ -44,7 +44,7 @@ export function drawLines(group: THREE.Group, lines: DrawLine[], w: number, h: n
         color: new THREE.Color(COLOUR[st.tone]).getHex(),
         linewidth: settings.sketch.widthPx * st.weight,
         transparent: st.soft,
-        opacity: st.soft ? 0.8 : 1,
+        opacity: l.pale ? 0.4 : st.soft ? 0.8 : 1,
         depthTest: false,
         ...(st.dashed && !l.head
           ? { dashed: true, dashSize: l.dash ?? 5, gapSize: (l.dash ?? 5) * settings.helpers.dashGap, dashScale: 1 }

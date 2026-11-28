@@ -3,11 +3,8 @@
 export type Tone =
   | "figure" // the line or shape being drawn or made: teal
   | "candidate" // a suggestion: a guide that would hold if taken (dashed teal)
-  | "aligned" // the figure while a hint holds: orange (the old project's preview "orange")
   | "ties" // what a relation ties the selection to: amber
   | "refused" // a constraint that holds a change back: red, flashing
-  | "applied" // a constraint that already holds as asked: green, flashing once
-  | "temp" // a temporary thing (a copy being placed): blue
   | "note" // the line of a dimension or an angle: charcoal grey
   | "axis"
   | "body"
@@ -19,11 +16,8 @@ export type Tone =
 export const COLOUR: Record<Tone, string> = {
   figure: "#1ab8b3", // settings.orb.color [0.1, 0.72, 0.7]: "THE teal" (selection, hover, guides)
   candidate: "#1ab8b3", // the same teal, drawn dashed
-  aligned: "#f59e0b", // view.ts: `p.orange ? 0xf59e0b`
   ties: "#f2c14e", // highlight.ts AMBER
   refused: "#e46a6a", // highlight.ts RED
-  applied: "#6b7178", // an applied constraint: neutral charcoal (only yellow and blue are colours: `in_1661`)
-  temp: "#4f8cf0", // highlight.ts TEMP
   note: "#55575c", // view.ts setNotes
   axis: "#2b2b30", // theme.axis [0.17, 0.17, 0.19]
   body: "#c9c9cd", // theme.bodyColor
@@ -56,15 +50,11 @@ export type StrokeKind =
   | "cursor"
   | "cut"
   | "tie"
-  | "guide"
+  | "dash"
+  | "dashOffer"
   | "centre"
-  | "arrow"
-  | "arrowOffer"
-  | "arrowPale"
   | "dimExt"
   | "dimArc"
-  | "align"
-  | "alignOffer"
   | "lit"
   | "litOffer"
   | "litOfferSel";
@@ -79,12 +69,7 @@ export const STROKE: Record<
 > = {
   note: { tone: "note", weight: 0.75, soft: false }, // the thin grey line of a number (an angle's arc)
   tieBall: { tone: "ties", weight: 1, soft: false }, // a point a helper is about: an orange ball
-  arrow: { tone: "note", weight: 0.75, soft: false, dashed: true }, // the one arrow (`in_1671`): a dashed line with an open tip that stops short of what it points at; neutral for a dimension and for a bubble's leader
-  arrowOffer: { tone: "ties", weight: 1.3, soft: false, dashed: true }, // the same for what an offer is about: yellow, a little heavier
-  arrowPale: { tone: "ties", weight: 0.75, soft: true, dashed: true }, // yellow and pale: what moves only because the named parts do
   dimExt: { tone: "note", weight: 0.5, soft: true }, // the thin lines from what a number measures to its dimension line
-  align: { tone: "note", weight: 0.75, soft: false, dashed: true }, // what an applied alignment ties together, while it is pointed at (`in_1668`)
-  alignOffer: { tone: "ties", weight: 0.75, soft: false, dashed: true }, // the same for an offer: yellow
   dimArc: { tone: "note", weight: 0.75, soft: false }, // an angle's arc, or a right angle's square, in its corner (`in_1667`)
   lit: { tone: "figure", weight: 0.75, soft: false }, // the parts an applied constraint is about, while its bubble is pointed at: blue (`in_1661`)
   litOffer: { tone: "ties", weight: 0.75, soft: false }, // the same for an offer: yellow
@@ -97,5 +82,6 @@ export const STROKE: Record<
   cursor: { tone: "figure", weight: 0.8, soft: true },
   cut: { tone: "refused", weight: 1.4, soft: false },
   tie: { tone: "ties", weight: 1.4, soft: false },
-  guide: { tone: "ties", weight: 0.75, soft: false, dashed: true }, // the dashed alignment lines: amber, as what they tie to (`in_1641`)
+  dash: { tone: "note", weight: 0.75, soft: false, dashed: true }, // the ONE dashed line (`in_1673`): thin and fine, neutral: a dimension, an applied alignment, a bubble's arrow
+  dashOffer: { tone: "ties", weight: 0.75, soft: false, dashed: true }, // the same line in yellow, for what is suggested: an alignment while drawing, an offer's arrows, its alignment, its bubble's arrow
 };

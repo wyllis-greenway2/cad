@@ -21,7 +21,7 @@ try {
   }`);
   await page.waitForTimeout(400);
   const dimLines = () =>
-    ev<any[]>(`() => window.__sketch.lines(null).filter((l) => (/^arrow/.test(l.kind) || l.kind === "dimExt"))`);
+    ev<any[]>(`() => window.__sketch.lines(null).filter((l) => (/^dash/.test(l.kind) || l.kind === "dimExt"))`);
   const bubble = (re: string) =>
     page.evaluate((re) => {
       const e = [...document.querySelectorAll("[data-key]")].find((x) =>
@@ -41,10 +41,10 @@ try {
   await page.waitForTimeout(250);
   const d1 = await dimLines();
   ok(
-    d1.filter((l) => l.kind === "arrow" && !l.head).length === 1 && d1.filter((l) => l.head).length === 2,
+    d1.filter((l) => l.kind === "dash" && !l.head).length === 1 && d1.filter((l) => l.head).length === 2,
     `pointing at it draws a dashed radial line with an arrow tip at each end: ${d1.map((l) => l.kind).join()}`,
   );
-  const dl = d1.find((l) => l.kind === "arrow" && !l.head);
+  const dl = d1.find((l) => l.kind === "dash" && !l.head);
   const len = dl ? Math.hypot(dl.pts[1][0] - dl.pts[0][0], dl.pts[1][1] - dl.pts[0][1]) : 0;
   ok(
     len > 5.5 && len < 6.5,
@@ -72,7 +72,7 @@ try {
     await page.waitForTimeout(250);
     const d2 = await dimLines();
     ok(
-      d2.filter((l) => l.kind === "arrow" && !l.head).length === 1 &&
+      d2.filter((l) => l.kind === "dash" && !l.head).length === 1 &&
         d2.filter((l) => l.kind === "dimExt").length === 2 &&
         d2.filter((l) => l.head).length === 2,
       `pointing at it draws a dashed line beside the line, two thin lines to it, two arrow tips: ${d2.map((l) => l.kind).join()}`,
@@ -129,29 +129,29 @@ try {
   await page.waitForTimeout(400);
   await click(15, 24); // line L1
   await page.waitForTimeout(500);
-  const aligns = () => ev<any[]>(`() => window.__sketch.lines(null).filter((l) => /^align/.test(l.kind))`);
+  const aligns = () =>
+    ev<any[]>(`() => window.__sketch.lines(null).filter((l) => l.kind === \"dashOffer\" || l.kind === \"dash\")`);
   ok((await aligns()).length === 0, "at rest no alignment line is drawn");
   const bal = await bubble("^near:horizontal:P1,P3");
   ok(!!bal, "P1 and P3 are level, so their alignment is offered");
   if (bal) {
     await page.mouse.move(bal.x, bal.y);
     await page.waitForTimeout(250);
-    const a1 = await aligns();
+    const a1 = (await aligns()).filter((l) => !l.head),
+      level = a1.find((l) => Math.abs(l.pts[0][1] - l.pts[1][1]) < 1e-6);
     ok(
-      a1.length === 1 && a1[0].kind === "alignOffer",
-      `pointing at it draws a yellow dashed line through both points: ${a1.map((l) => l.kind).join()}`,
+      a1.length === 2 && a1.every((l) => l.kind === "dashOffer") && !!level,
+      `pointing at it draws a yellow dashed line through both points (and the bubble's arrow): ${a1.map((l) => l.kind).join()}`,
     );
-    const [p0, p1] = a1[0].pts;
-    ok(Math.abs(p0[1] - p1[1]) < 1e-6, "and the line is level");
     // the arrow from the bubble to its spot is the one arrow: a dashed line with an open tip that stops short of the spot (`in_1671`)
-    const lead = await ev<any[]>(`() => window.__sketch.lines(null).filter((l) => /^arrow/.test(l.kind))`),
+    const lead = await ev<any[]>(`() => window.__sketch.lines(null).filter((l) => /^dash/.test(l.kind))`),
       mk = (await ev<any[]>(`() => window.__sketch.marks(performance.now()).map((m) => m.mark)`)).find(
         (m) => m.id === "near:horizontal:P1,P3",
       ),
-      shaft = lead.find((l) => !l.head),
+      shaft = lead.find((l) => !l.head && Math.abs(l.pts[0][1] - l.pts[1][1]) > 1e-6),
       tipEnd = shaft?.pts[1];
     ok(
-      lead.length === 2 && !!shaft && lead.some((l) => l.head) && !!mk,
+      lead.length === 3 && !!shaft && lead.some((l) => l.head) && !!mk,
       `pointing at it also draws one arrow from the bubble: ${lead.map((l) => l.kind + (l.head ? "/head" : "")).join()}`,
     );
     const gap = tipEnd ? Math.hypot(tipEnd[0] - mk.at[0], tipEnd[1] - mk.at[1]) : 0;

@@ -178,7 +178,7 @@ export function createDrag(K: Core, armed: () => boolean) {
             out.push({
               kind: l.kind,
               pts: l.pts.map((z) => to3(f, z)),
-              ...(l.kind === "guide" ? { dash: dashAt(f, at) } : {}),
+              ...(l.kind === "dashOffer" ? { dash: dashAt(f, at) } : {}),
               ...(l.kind === "tieBall" ? { r: mmPerPx(f, l.pts[0]!) * settings.sketch.ballPx } : {}),
             });
         }

@@ -6731,3 +6731,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1672 — 2026-11-28 — directive
 > yes lets just standardize, I want everything to reuse the same stuff as much as possible, lets have the same arrow style always and the tip always stops short
+
+## in_1673 — 2026-11-28 — directive
+> why are there still multiple styles of dashed lines? I want the simplest possible set of parts that can be reused to do what we want. Lets have one dashed line style, lets use the thinner finer dash style that is used for alignment suggestion and snapping when sketching like seen in the image with the two dashed lines showing alignment. What else can we simplify and standardize like this?
