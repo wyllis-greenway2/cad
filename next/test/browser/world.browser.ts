@@ -89,7 +89,7 @@ test("[C15] if the browser will not hold the pointer, game mode is given up and 
       HTMLCanvasElement.prototype.requestPointerLock =
         h === "a refused request"
           ? () => Promise.reject(new DOMException("no", "SecurityError"))
-          : () => void setTimeout(() => document.dispatchEvent(new Event("pointerlockerror")), 0);
+          : (() => void setTimeout(() => document.dispatchEvent(new Event("pointerlockerror")), 0)) as unknown as typeof HTMLCanvasElement.prototype.requestPointerLock; // (older browsers return nothing and fire the event)
     }, how);
     await page.keyboard.press("Space"); // a tap of the space bar turns game mode on
     await page.waitForTimeout(150);
