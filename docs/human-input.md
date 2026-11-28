@@ -6755,3 +6755,6 @@ The hallow tool doesn't work quite like I would expect. First off, I would expec
 
 ## in_1680 — 2026-11-28 — approval
 > yes replace them and draft all the themes in one go
+
+## in_1681 — 2026-11-28 — approval
+> approve all of them, write the tests
