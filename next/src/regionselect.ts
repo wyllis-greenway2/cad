@@ -43,8 +43,8 @@ export function createRegionSelect(K: Core) {
       return def && frame && region ? { key, frame, def, region } : null;
     },
     /** A click with no tool that has hit no part of the drawing: the figure it is inside is picked. Returns whether there was one. */
-    pick(c: { key: string; p: SketchParams; q: P2; f: Frame }): boolean {
-      if (!regionOf(c.p, c.q)) return false;
+    pick(c: { key: string; p: SketchParams; q: P2; f: Frame; behind: boolean }): boolean {
+      if (c.behind || !regionOf(c.p, c.q)) return false;
       sel.setRegion({ key: c.key, at: c.q, click: to3(c.f, c.q) });
       pickedAt = performance.now();
       return true;
@@ -53,7 +53,7 @@ export function createRegionSelect(K: Core) {
     hover(x: number, y: number): boolean {
       const c = here(x, y);
       over = null;
-      if (!c || hitAt(c.p, solOf(c.p), c.q, c.tol) || !regionOf(c.p, c.q)) return false;
+      if (!c || c.behind || hitAt(c.p, solOf(c.p), c.q, c.tol) || !regionOf(c.p, c.q)) return false;
       over = { key: c.key, at: c.q, click: to3(c.f, c.q) };
       return true;
     },

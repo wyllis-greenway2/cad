@@ -18,17 +18,25 @@ try {
   );
   await settle();
   const p3 = (p: number[]) => ev<[number, number]>(`() => window.__proj3([${p}])`);
+  // a number: the pill is shown once the arrow is taken or a kind chosen; before that digits typed show it and go to it (as the old app's did)
   const type = async (v: string) => {
     const num = await page.evaluate(() => {
       const e = [...document.querySelectorAll<HTMLElement>("[data-fact='d'] span")].find((s) =>
         /^-?[\d.]+$/.test(s.textContent ?? ""),
-      )!;
+      );
+      if (!e) return null;
       const r = e.getBoundingClientRect();
       return [r.x + r.width / 2, r.y + r.height / 2];
     });
-    await page.mouse.click(num[0]!, num[1]!);
-    await page.keyboard.press("Control+a");
-    await page.keyboard.type(v);
+    if (num) {
+      await page.mouse.click(num[0]!, num[1]!);
+      await page.keyboard.press("Control+a");
+      await page.keyboard.type(v);
+    } else {
+      await page.keyboard.type(v[0]!);
+      await page.waitForTimeout(200);
+      await page.keyboard.type(v.slice(1));
+    }
     await page.keyboard.press("Enter");
   };
   // a face picked, then Round from the ring: the face stands for its edges, all four are rounded together (the old app's rule, `in_257`)
@@ -55,6 +63,10 @@ try {
     d.pull?.mode === "round" && d.pull.edges === 1,
     `a picked edge opens the round with a size by itself: ${JSON.stringify(d.pull)}`,
   );
+  await page.click("[data-bar='opt:chamfer']"); // (taking the arrow or choosing a kind shows the number: a kind chosen and chosen back)
+  await page.waitForTimeout(250);
+  await page.click("[data-bar='opt:fillet']");
+  await page.waitForTimeout(250);
   await type("3");
   await page.waitForTimeout(150);
   d = await ev<any>(`() => window.__ext.debug()`);

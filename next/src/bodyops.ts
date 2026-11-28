@@ -2,7 +2,7 @@
 import type { Selection } from "./bodyselect.ts";
 import { flushPull, type PlaneRef } from "./engine/flush.ts";
 import { idKey } from "./engine/id.ts";
-import { edgeAnchor, faceCentre } from "./interaction/anchors.ts";
+import { edgeAnchor, faceCentre, normalAt } from "./interaction/anchors.ts";
 import { edgesAround } from "./interaction/pick.ts";
 import type { Operation } from "./interaction/operation.ts";
 import { pushOp, roundOp, type PullInfo } from "./interaction/operations.ts";
@@ -76,8 +76,10 @@ export function createBodyOps(host: BodyOpsHost) {
         const positions = facePositions(mesh, f);
         const r = await studio.ask({ what: "pullModes", step: sel.body, face: f.ref }); // the kinds of pull this face has, from the worker
         const kinds = r.ok ? (r.data as PullInfo[]) : [{ mode: "push" as const, ok: true, why: "", suggested: true }];
-        const at = faceCentre(mesh, f), // (the arrow stands in the middle of the face)
-          normal = ff.ne as unknown as V3,
+        const at = faceCentre(mesh, f, sel.at), // (the arrow stands in the middle of the face, on it: the wall of a cylinder has its middle on the axis)
+          nm = normalAt(mesh, f, at),
+          ne = ff.ne as unknown as V3,
+          normal = nm[0] * ne[0] + nm[1] * ne[1] + nm[2] * ne[2] > 0.9999 ? ne : nm, // (a flat face's own normal; a curved face's, where the arrow stands)
           snap = (d: number, reach: number) => {
             const r = flushPull({ p: at, n: normal }, planes(), d, reach);
             return r && { d: r.d, tie: r.to.face };

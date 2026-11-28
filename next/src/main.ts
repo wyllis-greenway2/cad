@@ -9,6 +9,7 @@ import { TYPED } from "./interaction/typing.ts";
 import { createBodyOps } from "./bodyops.ts";
 import type { Mark } from "./bodyselect.ts";
 import { createBodySelect } from "./bodyselect.ts";
+import { pickAt, pickRay } from "./interaction/pick.ts";
 import { forward, project, type Axis } from "./camera.ts";
 import * as dev from "./dev.ts";
 import { flushPull, planesOf, type PlaneRef } from "./engine/flush.ts";
@@ -58,6 +59,7 @@ const game = createGame();
 
 let s = view.initial(model);
 let pointer: view.Pointer | null = null;
+let typedFirst: string | null = null; // (the first digit of a number, to go to it once it is shown)
 /** what the camera looks at: the stand-in things and a box for each body the engine made, made again only when the engine's bodies change (`scene.ts`) */
 let looked: { standIns: readonly unknown[]; bodies: readonly unknown[]; scene: Scene } | null = null;
 const cameraScene = (): Scene => {
@@ -157,6 +159,12 @@ const sk = createSketch(
       };
     },
     ray: (x, y) => view.rayAt(s, env(), x, y),
+    inFront: (at, x, y) => {
+      const e = env(),
+        hit = pickAt(studio.state().meshes, s.c, e.w, e.h, x, y),
+        o = pickRay(s.c, e.w, e.h, x, y).o;
+      return !!hit && Math.hypot(...sub(hit.point, o)) < Math.hypot(...sub(at, o)) - 0.01; // (a figure on the surface itself is on it, to a hundredth of a mm);
+    },
   },
   (label, merge) => record(label, merge),
 );
@@ -627,8 +635,12 @@ addEventListener("keydown", (e) => {
   }
   // digits with an arrow showing begin its number (`MD-32`): the key typed is the first of it, Enter sets it and makes the operation
   const digit = TYPED[e.code];
-  if (digit !== undefined && ext.pulling() && !infobar.editing() && infobar.startEdit("d", digit)) {
-    ext.typedBegun();
+  if (digit !== undefined && ext.pulling() && !infobar.editing()) {
+    if (infobar.startEdit("d", digit)) ext.typedBegun();
+    else {
+      ext.askNumber(); // (the number is not shown yet: it is, and the key goes to it in the next picture)
+      typedFirst = digit;
+    }
     e.preventDefault();
     return;
   }
@@ -700,6 +712,7 @@ function frame(now: number) {
     bodyOrbs = bodies.orbs();
   world.render({
     ...d,
+    disc: bodies.under() || regions.orb.hover ? null : d.disc, // (on a body or a figure the orb of its surface is the disc)
     ...(placed
       ? {
           grid: gridLevelAt(s.c, Math.abs(dot(sub(s.c.eye, placed.origin), placed.normal))),
@@ -732,6 +745,10 @@ function frame(now: number) {
     const sub = game.on ? null : (ext.subject() ?? bodies.subject(sk.active() || ext.active())),
       e = env();
     infobar.show(sub?.info ?? null, sub?.at ?? null, sub?.on ?? null, e.w, e.h);
+    if (typedFirst !== null) {
+      if (infobar.startEdit("d", typedFirst)) ext.typedBegun();
+      typedFirst = null;
+    }
     markdraw.show(game.on ? [] : sk.marks(now), sk.handlers);
   }
   {

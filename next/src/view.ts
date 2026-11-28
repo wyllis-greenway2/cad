@@ -308,7 +308,7 @@ export function gizmoScale(s: ViewState): number {
 /** What is under the pointer: the pane of a plane, a face of a thing, or the plane that is on, with the hover disc that goes on it. */
 export function underPointer(s: ViewState, e: Env, pointer: Pointer | null) {
   const r = pointer || e.gameOn ? rayAt(s, e, pointer?.x ?? 0, pointer?.y ?? 0) : null;
-  const hit = r ? hitThings(e.model, r.o, r.d) : null;
+  const hit = r ? hitThings({ things: e.model.things.filter((t) => !t.body) }, r.o, r.d) : null; // (a body's own surface is pointed at by its own orb, `orbfill.ts`)
   const pane = r && !s.worldHidden && paneUsable(s) ? paneAt(e.model, r.o, r.d, gizmoScale(s)) : null;
   const flat = r && !hit && !pane ? planeHit(r.o, r.d, s.plane) : null;
   const radius = (t: number) =>

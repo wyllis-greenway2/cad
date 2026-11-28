@@ -69,6 +69,7 @@ function rig(ortho = 100) {
     view: () => ({ cam: c, w: W, h: H }),
     planes: () => ({ all: frames, on, step: 1 }),
     ray: (x: number, y: number) => cam.rayFrom(c, (x / W) * 2 - 1, -((y / H) * 2 - 1), W / H),
+    inFront: () => false, // (no bodies in these tests)
   };
   const sk = createSketch(host as never, (label) => void history.push(label));
   const px = (x: number, y: number) => {

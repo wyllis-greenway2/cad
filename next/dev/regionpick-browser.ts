@@ -68,6 +68,16 @@ try {
   ok(s.steps.includes("extrude"), `Enter makes the body: ${s.steps.join(",")}`);
   ok(s.pull === null, "and the figure is let go");
   await shot("r3-made");
+  // the body made stands over the figure it was made from (the figure is on its underside): a click on the body's top picks the body's face, not the figure behind it (the old app's surface came first)
+  await page.waitForTimeout(500);
+  const [tx, ty] = await ev<[number, number]>(`() => window.__proj3([30, 5, 12])`);
+  await page.mouse.click(tx, ty);
+  await page.waitForTimeout(700);
+  const sel = await ev<any>(`() => window.__selection.get()`);
+  ok(
+    sel?.kind === "body" && sel.faces?.length === 1,
+    `a click on the top of the body picks its face, not the figure behind it: ${JSON.stringify(sel)?.slice(0, 160)}`,
+  );
   ok(errors.length === 0, `no errors in the page ${errors.join(" | ").slice(0, 300)}`);
   await close();
 } finally {

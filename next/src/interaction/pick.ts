@@ -65,6 +65,11 @@ const toSeg = (px: number, py: number, ax: number, ay: number, bx: number, by: n
     u = l2 < 1e-12 ? 0 : Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / l2));
   return { d: Math.hypot(px - (ax + vx * u), py - (ay + vy * u)), u };
 };
+/** The pointer's ray for picking: from the eye in perspective; in a straight view from far in front of the model along the view (its own ray starts on the plane through the eye, which can be inside the model: what is behind that plane is still under the pointer). */
+export function pickRay(cam: Cam, w: number, h: number, x: number, y: number): { o: V3; d: V3 } {
+  const r = rayOf(cam, w, h, x, y);
+  return cam.ortho === null ? r : { o: [r.o[0] - r.d[0] * 1e6, r.o[1] - r.d[1] * 1e6, r.o[2] - r.d[2] * 1e6], d: r.d };
+}
 /** what the pointer is at: an edge within `tolPx` that is not hidden behind the face the pointer is over, else that face, else nothing */
 export function pickAt(
   meshes: readonly BodyMesh[],
@@ -75,7 +80,7 @@ export function pickAt(
   y: number,
   tolPx = 7,
 ): Hit | null {
-  const r = rayOf(cam, w, h, x, y),
+  const r = pickRay(cam, w, h, x, y),
     o = r.o,
     d = r.d;
   let face: Hit | null = null,

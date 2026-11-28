@@ -69,7 +69,7 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
       regionGroup.add(m);
       if (r.role === "pick")
         for (const loop of r.loops) {
-          const line = strokeOf({ kind: "selected", pts: loop.map(at) }, w, h);
+          const line = strokeOf({ kind: "selected", hidden: true, pts: loop.map(at) }, w, h);
           regionGroup.add(line);
           regionLines.push((line as Line2).material as LineMaterial);
         }
@@ -174,7 +174,11 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
         const pts: V3[] = [];
         for (let i = e.start; i < e.start + e.count; i++)
           pts.push([b.lines[3 * i]!, b.lines[3 * i + 1]!, b.lines[3 * i + 2]!]);
-        const line = strokeOf({ kind: mk.strength === "tie" ? "tie" : strong ? "selected" : "lit", pts }, w, h);
+        const line = strokeOf(
+          { kind: mk.strength === "tie" ? "tie" : strong ? "selected" : "lit", hidden: true, pts },
+          w,
+          h,
+        );
         markGroup.add(line);
         markLines.push((line as Line2).material as LineMaterial);
       }
@@ -230,11 +234,13 @@ export function createOverlays(scene: THREE.Scene, solids: () => readonly BodyMe
     ghostLines.length = 0;
     let mesh: THREE.Mesh, edges: THREE.Object3D;
     if (g.adds) {
-      // a body to be made is drawn as the body it will be: solid, lit, with the edges that can be seen (the sketch's thin line, hidden by what is in front)
+      // a body to be made is drawn as a body, marked as a preview is (the Solid look with the teal laid over it, `looks.ts`), with the edges that can be seen (the sketch's thin line, hidden by what is in front)
       const pairs = new THREE.EdgesGeometry(geo, 30).getAttribute("position").array,
         pts: V3[] = [];
       for (let i = 0; i + 2 < pairs.length; i += 3) pts.push([pairs[i]!, pairs[i + 1]!, pairs[i + 2]!]);
-      mesh = new THREE.Mesh(geo, solidLook());
+      const solid = solidLook().clone() as THREE.MeshPhysicalMaterial;
+      solid.color.setHex(surfaceOf({ base: "solid", mark: "pick" }).color);
+      mesh = new THREE.Mesh(geo, solid);
       edges = strokeOf({ kind: "done", pairs: true, hidden: true, pts }, 1, 1);
       ghostLines.push((edges as Line2).material as LineMaterial);
     } else {

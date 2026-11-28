@@ -44,7 +44,8 @@ export function createOperations(host: OperationHost) {
     grab: { x0: number; y0: number; d0: number } | null = null,
     applyNext = false, // (the number now being typed was begun by digits with the operation showing: Enter sets it and makes the operation, as the old app's did)
     auto = false, // (it came by itself, from a pick: `autohandles.ts`)
-    touched = false; // (and the person has dragged it, typed a number or chosen a kind)
+    touched = false, // (and the person has dragged it, typed a number or chosen a kind)
+    numberAsked = false; // (digits were typed: the number is to be shown to take them)
   /** the arrow, as in the old app: centred on the place it is anchored at, along the way it is pulled, with a head at each end; long enough to reach the pull when that is longer than it is */
   const handle = (o: Operation, cam: Cam): Handle => {
     const a = o.arrow!,
@@ -64,7 +65,7 @@ export function createOperations(host: OperationHost) {
     op = null;
     grab = null;
     tie = null;
-    auto = touched = false;
+    auto = touched = numberAsked = false;
   };
   function apply(): boolean {
     if (!op) return false;
@@ -100,7 +101,7 @@ export function createOperations(host: OperationHost) {
       grab = null;
       op = o;
       auto = byItself;
-      touched = false;
+      touched = numberAsked = false;
       if (o.tilt && !byItself) host.tilt(o.tilt.frame, o.tilt.centre, o.tilt.size); // (the view is not moved for an arrow that came by itself from a pick: it is as a face's, which does not move it)
     },
     /** The Extrude tool is chosen: the next click inside a closed part of the drawing picks it. */
@@ -149,6 +150,10 @@ export function createOperations(host: OperationHost) {
     tie: (): string | null => tie,
     apply,
     cancel,
+    /** digits were typed with the number not shown: it is to be shown (the key goes to it once it is) */
+    askNumber(): void {
+      numberAsked = true;
+    },
     /** digits typed with an operation showing have begun its number: Enter will make the operation as well as set the number */
     typedBegun(): void {
       applyNext = true;
@@ -214,7 +219,7 @@ export function createOperations(host: OperationHost) {
       };
       return {
         info: {
-          facts: [f],
+          facts: !auto || touched || numberAsked ? [f] : [],
           suggestions: op.options
             .filter((o) => !o.on && o.enabled)
             .map((o) => ({

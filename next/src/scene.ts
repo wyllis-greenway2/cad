@@ -5,6 +5,8 @@ export interface Thing {
   id: string;
   lo: V3;
   hi: V3;
+  /** the box of a body the engine made: the camera measures by it, but its faces are not surfaces to point at (the body's own are) */
+  body?: true;
 }
 export interface Scene {
   things: Thing[];
@@ -26,7 +28,7 @@ export function boxUnder(t: Thing, m: readonly number[]): Thing {
           lo[k] = Math.min(lo[k]!, v);
           hi[k] = Math.max(hi[k]!, v);
         }
-  return { id: t.id, lo, hi };
+  return { ...t, lo, hi };
 }
 /** The scene with the body that is shown moved (the mover orb's draft) where it is shown, not where it was made. */
 export const withMoved = (sc: Scene, moved: { body: string; matrix: readonly number[] } | null): Scene =>
@@ -44,7 +46,7 @@ export function bodyThings(meshes: readonly { id: string; positions: ArrayLike<n
           lo[k] = Math.min(lo[k]!, m.positions[i + k]!);
           hi[k] = Math.max(hi[k]!, m.positions[i + k]!);
         }
-      boxes.set(m, (t = { id: m.id, lo, hi }));
+      boxes.set(m, (t = { id: m.id, lo, hi, body: true }));
     }
     return t ? [t] : [];
   });

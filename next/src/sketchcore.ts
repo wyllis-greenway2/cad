@@ -23,6 +23,8 @@ export interface SketchHost {
   /** Every plane there is, by name (the sketches of a plane that is gone are let go), and the one that is on. */
   planes(): { all: Map<string, Frame>; on: string; step: number };
   ray(x: number, y: number): { o: V3; d: V3 };
+  /** whether a body's surface under the pointer is nearer than this place (of a sketch's plane): a closed figure behind the surface of a body is not picked, as the old app's surface came first and a drawing only where it lay on that surface */
+  inFront(at: V3, x: number, y: number): boolean;
   /** digits typed with a part selected go to its number in the info bar (false: there is none), and whether a number is being typed */
   startEdit(id: string, initial: string): boolean;
   editing(): boolean;
@@ -173,7 +175,7 @@ export function createCore(host: SketchHost, on?: (label: string, merge?: string
       q = onPlane(c.f, r.o, r.d);
     if (!q) return null;
     const mm = mmPerPx(c.f, to2(c.f, q));
-    return { ...c, q: to2(c.f, q), mm, tol: mm * settings.sketch.snapPx };
+    return { ...c, q: to2(c.f, q), mm, tol: mm * settings.sketch.snapPx, behind: host.inFront(q, x, y) };
   };
   /** a change of a sketch: kept, and said to whoever keeps the history (`label`: what it was; `merge`: changes with the same key are one, a number typed again and again) */
   const set = (key: string, p: SketchParams, label: string, merge?: string) => {

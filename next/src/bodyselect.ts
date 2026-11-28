@@ -34,6 +34,8 @@ export function createBodySelect(host: BodySelectHost) {
     (a.key ?? a.id) === (b.key ?? b.id);
   return {
     selection: (): Selection | null => sel(),
+    /** a face or an edge of a body is under the pointer */
+    under: (): boolean => over !== null,
     /** the body under the pointer (null: none) */
     bodyAt(x: number, y: number): string | null {
       const { cam, w, h } = host.view();
